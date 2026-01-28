@@ -1,0 +1,9 @@
+{
+  "name": "VELARE HUB",
+  "short_name": "VELARE",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff9aa2",
+  "icons": [{ "src": "Logo.png", "sizes": "512x512", "type": "image/png" }]
+}

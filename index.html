@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VELARE | Wala lang po</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #fdf6f0; --accent: #ff9aa2; --white: #ffffff; --text: #4d4d4d; }
+        body, html { margin: 0; padding: 0; font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+
+        /* LOADING */
+        #loading-screen { position: fixed; inset: 0; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10000; }
+        .logo-load { width: 250px; animation: breathe 3s infinite; }
+        @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        /* HEADER & AUTH */
+        header { background: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 25px 25px; position: sticky; top: 0; z-index: 900; }
+        #auth-screen { height: 100vh; display: none; flex-direction: column; justify-content: center; align-items: center; }
+
+        /* NAVIGATION */
+        nav { display: flex; overflow-x: auto; padding: 15px; gap: 10px; scrollbar-width: none; }
+        .tab { white-space: nowrap; padding: 10px 22px; background: white; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: #bbb; cursor: pointer; transition: 0.3s; }
+        .tab.active { background: var(--accent); color: white; box-shadow: 0 5px 15px rgba(255,154,162,0.3); }
+
+        /* CARDS */
+        .card { background: white; margin: 15px; padding: 25px; border-radius: 30px; position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.02); cursor: pointer;}
+        .del-btn { position: absolute; top: 20px; right: 20px; color: #ff7675; cursor: pointer; z-index: 5; }
+        .like-area { display: flex; align-items: center; gap: 5px; margin-top: 15px; color: #ccc; cursor: pointer; }
+        .like-area.active { color: var(--accent); }
+
+        /* MODALS */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.1); backdrop-filter: blur(15px); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .modal { background: white; width: 85%; max-width: 400px; padding: 30px; border-radius: 40px; max-height: 80vh; overflow-y: auto; }
+        input, textarea, select { width: 100%; padding: 15px; margin: 8px 0; border: none; background: #f7f7f7; border-radius: 15px; font-family: inherit; box-sizing: border-box; }
+        .btn { width: 100%; padding: 16px; border: none; border-radius: 18px; font-weight: 600; cursor: pointer; background: var(--accent); color: white; margin-top: 10px; }
+
+        /* GAME LAYER */
+        #game-layer { position: fixed; inset: 0; background: var(--bg); z-index: 9000; display: none; flex-direction: column; align-items: center; justify-content: center; transition: background 0.5s; }
+        .game-card { background: white; width: 80%; padding: 40px 20px; border-radius: 40px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.05); position: relative; }
+        
+        .fab { position: fixed; bottom: 30px; right: 30px; width: 75px; height: 75px; background: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(255,154,162,0.4); cursor: pointer; z-index: 800; }
+        
+        .game-mode-title { font-weight: 800; font-size: 2rem; margin-bottom: 20px; opacity: 0.3; text-transform: uppercase; letter-spacing: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <img src="Logo.png" class="logo-load">
+        <p style="letter-spacing: 4px; color: #aaa; margin-top: 15px;">MADE BY VELARE</p>
+    </div>
+
+    <div id="auth-screen">
+        <img src="Logo.png" style="width: 130px; margin-bottom: 25px;">
+        <input type="text" id="user-in" placeholder="Enter Name or Admin Pass" style="width: 280px;">
+        <button class="btn" style="width: 280px;" onclick="doLogin()">Enter Ecosystem</button>
+    </div>
+
+    <div id="hub" style="display:none;">
+        <header>
+            <img src="Logo.png" style="width: 50px;">
+            <div onclick="doLogout()"><i data-lucide="log-out" style="color:var(--accent); cursor:pointer;"></i></div>
+        </header>
+
+        <nav>
+            <div class="tab active" onclick="setTab('All', this)">All Works</div>
+            <div class="tab" onclick="setTab('Feeds', this)">Feeds</div>
+            <div class="tab" onclick="setTab('Truth or Dare', this)">Truth or Dare</div>
+            <div class="tab" onclick="setTab('True or False', this)">True or False</div>
+        </nav>
+
+        <div id="feed" style="padding-bottom: 100px;"></div>
+        <div class="fab" onclick="openCreator()"><i data-lucide="plus" size="32"></i></div>
+    </div>
+
+    <div id="game-layer">
+        <div style="position: absolute; top: 30px; left: 30px;" onclick="closeGame()"><i data-lucide="x-circle"></i></div>
+        
+        <div id="game-mode-display" class="game-mode-title" onclick="shuffleCurrent()">Truth or Dare</div>
+        
+        <div class="game-card">
+            <h2 id="q-text" style="margin: 0;">Loading...</h2>
+        </div>
+
+        <div id="game-btns" style="width: 80%; margin-top: 25px; display: flex; flex-direction: column; gap: 10px;"></div>
+    </div>
+
+    <div id="modal-overlay" class="overlay">
+        <div class="modal" id="modal-body"></div>
+    </div>
+
+    <script>
+        const API_KEY = '$2a$10$S78FrQhTp4AP.zB/dT4La.TwKKmMXjNYybnb8j.E5WtVPhvCReBmu';
+        const BINS = {
+            ALL: '6979d34b43b1c97be9514820',
+            TD: '6979d361d0ea881f408cb3df',
+            TF: '6979d37ad0ea881f408cb41c',
+            LIKES: '6979d397ae596e708ffd1cb8',
+            ADMIN: '6979d3b243b1c97be9514916'
+        };
+
+        let user = localStorage.getItem('v_user');
+        let works = [];
+        let likes = {};
+        let currentTab = 'All';
+
+        // Gameplay state
+        let activeG, gQuestions = [], currentQIndex = 0;
+
+        window.onload = () => {
+            lucide.createIcons();
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+                if(!user) document.getElementById('auth-screen').style.display = 'flex';
+                else startApp();
+            }, 5000);
+        };
+
+        function doLogin() {
+            let val = document.getElementById('user-in').value;
+            if(!val) return;
+            localStorage.setItem('v_user', val === '1227-1227' ? 'ADMIN' : val);
+            location.reload();
+        }
+
+        function doLogout() { localStorage.clear(); location.reload(); }
+
+        async function startApp() {
+            document.getElementById('hub').style.display = 'block';
+            await loadData();
+        }
+
+        async function loadData() {
+            try {
+                const [wRes, lRes] = await Promise.all([
+                    fetch(`https://api.jsonbin.io/v3/b/${BINS.ALL}/latest`, {headers:{'X-Master-Key': API_KEY}}),
+                    fetch(`https://api.jsonbin.io/v3/b/${BINS.LIKES}/latest`, {headers:{'X-Master-Key': API_KEY}})
+                ]);
+                works = (await wRes.json()).record.works || [];
+                likes = (await lRes.json()).record.likes || {};
+                render();
+            } catch(e) { console.log("Offline or Load Error"); }
+        }
+
+        function setTab(t, el) {
+            currentTab = t;
+            document.querySelectorAll('.tab').forEach(item => item.classList.remove('active'));
+            el.classList.add('active');
+            render();
+        }
+
+        function render() {
+            const container = document.getElementById('feed');
+            let data = currentTab === 'All' ? works : works.filter(w => w.type === currentTab);
+            
+            container.innerHTML = data.map(w => `
+                <div class="card" onclick="openWork(${w.id})">
+                    ${user === 'ADMIN' ? `<i data-lucide="trash-2" class="del-btn" onclick="deleteWork(event, ${w.id})"></i>` : ''}
+                    <small style="color:var(--accent); font-weight:800; text-transform:uppercase;">${w.type}</small>
+                    <h3 style="margin:8px 0;">${w.title}</h3>
+                    <p style="font-size:0.7rem; color:#bbb;">Author: ${w.author}</p>
+                    <div class="like-area ${likes[w.id] ? 'active' : ''}" onclick="addLike(event, ${w.id})">
+                        <i data-lucide="heart" size="18"></i> <span>${likes[w.id] || 0}</span>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        async function addLike(e, id) {
+            e.stopPropagation();
+            likes[id] = (likes[id] || 0) + 1;
+            render();
+            await fetch(`https://api.jsonbin.io/v3/b/${BINS.LIKES}`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json', 'X-Master-Key': API_KEY},
+                body: JSON.stringify({ likes })
+            });
+        }
+
+        async function deleteWork(e, id) {
+            e.stopPropagation();
+            if(!confirm("Delete forever?")) return;
+            works = works.filter(w => w.id !== id);
+            render();
+            await syncMaster();
+        }
+
+        function openCreator() {
+            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('modal-body').innerHTML = `
+                <h3 style="margin-bottom:15px;">Upload Work</h3>
+                <select id="ctype">
+                    <option value="Feeds">Feeds</option>
+                    <option value="Truth or Dare">Truth or Dare</option>
+                    <option value="True or False">True or False</option>
+                </select>
+                <input id="ctitle" placeholder="Title">
+                <textarea id="ccontent" placeholder="Content/Questions (Use / as separator)" rows="4"></textarea>
+                <input type="color" id="ccolor" value="#ff9aa2" title="Choose Card Color">
+                <input id="cans" placeholder="Answers (Optional)">
+                <button class="btn" onclick="saveToBin()">Upload to Ecosystem</button>
+                <p onclick="closeModal()" style="text-align:center; color:#ccc; cursor:pointer; margin-top:15px;">Cancel</p>
+            `;
+        }
+
+        async function saveToBin() {
+            const type = document.getElementById('ctype').value;
+            const newItem = {
+                id: Date.now(),
+                author: user,
+                type: type,
+                title: document.getElementById('ctitle').value,
+                content: document.getElementById('ccontent').value,
+                color: document.getElementById('ccolor').value,
+                answers: document.getElementById('cans').value
+            };
+
+            works.unshift(newItem);
+            let subBin = type === 'Truth or Dare' ? BINS.TD : (type === 'True or False' ? BINS.TF : BINS.ALL);
+            
+            closeModal();
+            render();
+            
+            await syncMaster();
+            await fetch(`https://api.jsonbin.io/v3/b/${subBin}`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json', 'X-Master-Key': API_KEY},
+                body: JSON.stringify({ items: works.filter(w => w.type === type) })
+            });
+        }
+
+        async function syncMaster() {
+            await fetch(`https://api.jsonbin.io/v3/b/${BINS.ALL}`, {
+                method: 'PUT', headers: {'Content-Type': 'application/json', 'X-Master-Key': API_KEY},
+                body: JSON.stringify({ works })
+            });
+        }
+
+        // --- UPDATED GAME ENGINE ---
+        function openWork(id) {
+            activeG = works.find(w => w.id === id);
+            if(activeG.type === 'Feeds') {
+                showModal(`<h3>${activeG.title}</h3><p>${activeG.content}</p><button class="btn" onclick="closeModal()">Close</button>`);
+                return;
+            }
+            // Prepare questions using '/' separator
+            gQuestions = activeG.content.split('/').map(q => q.trim()).filter(q => q !== "");
+            currentQIndex = 0;
+            
+            document.getElementById('game-layer').style.display = 'flex';
+            document.getElementById('game-layer').style.backgroundColor = activeG.color || 'var(--bg)';
+            document.getElementById('game-mode-display').innerText = activeG.type;
+            play();
+        }
+
+        function play() {
+            if (gQuestions.length === 0) {
+                alert("No more questions!");
+                closeGame();
+                return;
+            }
+            
+            document.getElementById('q-text').innerText = gQuestions[currentQIndex];
+            const area = document.getElementById('game-btns');
+            
+            if(activeG.type === 'Truth or Dare') {
+                area.innerHTML = `
+                    <button class="btn" onclick="nextQ()">Next Player</button>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn" style="background:#555" onclick="skipQ()">Skip Question</button>
+                        <button class="btn" style="background:#ff7675" onclick="removeCurrentQ()">Close & Delete Question</button>
+                    </div>
+                `;
+            } else {
+                area.innerHTML = `
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn" onclick="nextQ()">TRUE</button>
+                        <button class="btn" style="background:#ddd; color:#333;" onclick="nextQ()">FALSE</button>
+                    </div>
+                `;
+            }
+        }
+
+        function shuffleCurrent() {
+            gQuestions.sort(() => Math.random() - 0.5);
+            currentQIndex = 0;
+            play();
+            alert("Questions Shuffled!");
+        }
+
+        function skipQ() {
+            currentQIndex = (currentQIndex + 1) % gQuestions.length;
+            play();
+        }
+
+        function removeCurrentQ() {
+            gQuestions.splice(currentQIndex, 1);
+            if (currentQIndex >= gQuestions.length) currentQIndex = 0;
+            play();
+        }
+
+        function nextQ() {
+            currentQIndex++;
+            if(currentQIndex >= gQuestions.length) { 
+                alert("Round Complete! Re-shuffling..."); 
+                currentQIndex = 0; 
+                gQuestions.sort(() => Math.random() - 0.5);
+            }
+            play();
+        }
+
+        function closeGame() { document.getElementById('game-layer').style.display = 'none'; }
+        function showModal(h) { document.getElementById('modal-body').innerHTML = h; document.getElementById('modal-overlay').style.display = 'flex'; }
+        function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
+    </script>
+</body>
+</html>
