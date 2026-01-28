@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VELARE | Wala lang po</title>
+    <link rel="manifest" href="manifest.json">
     <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
@@ -18,6 +19,7 @@
         /* HEADER & AUTH */
         header { background: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-radius: 0 0 25px 25px; position: sticky; top: 0; z-index: 900; }
         #auth-screen { height: 100vh; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        .header-actions { display: flex; gap: 15px; align-items: center; }
 
         /* NAVIGATION */
         nav { display: flex; overflow-x: auto; padding: 15px; gap: 10px; scrollbar-width: none; }
@@ -43,6 +45,7 @@
         .fab { position: fixed; bottom: 30px; right: 30px; width: 75px; height: 75px; background: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(255,154,162,0.4); cursor: pointer; z-index: 800; }
         
         .game-mode-title { font-weight: 800; font-size: 2rem; margin-bottom: 20px; opacity: 0.3; text-transform: uppercase; letter-spacing: 5px; cursor: pointer; }
+        #download-btn { display: none; color: #444; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -61,7 +64,10 @@
     <div id="hub" style="display:none;">
         <header>
             <img src="Logo.png" style="width: 50px;">
-            <div onclick="doLogout()"><i data-lucide="log-out" style="color:var(--accent); cursor:pointer;"></i></div>
+            <div class="header-actions">
+                <div id="download-btn" onclick="installPWA()"><i data-lucide="download"></i></div>
+                <div onclick="doLogout()"><i data-lucide="log-out" style="color:var(--accent); cursor:pointer;"></i></div>
+            </div>
         </header>
 
         <nav>
@@ -77,13 +83,10 @@
 
     <div id="game-layer">
         <div style="position: absolute; top: 30px; left: 30px;" onclick="closeGame()"><i data-lucide="x-circle"></i></div>
-        
         <div id="game-mode-display" class="game-mode-title" onclick="shuffleCurrent()">Truth or Dare</div>
-        
         <div class="game-card">
             <h2 id="q-text" style="margin: 0;">Loading...</h2>
         </div>
-
         <div id="game-btns" style="width: 80%; margin-top: 25px; display: flex; flex-direction: column; gap: 10px;"></div>
     </div>
 
@@ -93,21 +96,35 @@
 
     <script>
         const API_KEY = '$2a$10$S78FrQhTp4AP.zB/dT4La.TwKKmMXjNYybnb8j.E5WtVPhvCReBmu';
-        const BINS = {
-            ALL: '6979d34b43b1c97be9514820',
-            TD: '6979d361d0ea881f408cb3df',
-            TF: '6979d37ad0ea881f408cb41c',
-            LIKES: '6979d397ae596e708ffd1cb8',
-            ADMIN: '6979d3b243b1c97be9514916'
-        };
+        const BINS = { ALL: '6979d34b43b1c97be9514820', TD: '6979d361d0ea881f408cb3df', TF: '6979d37ad0ea881f408cb41c', LIKES: '6979d397ae596e708ffd1cb8', ADMIN: '6979d3b243b1c97be9514916' };
 
         let user = localStorage.getItem('v_user');
-        let works = [];
-        let likes = {};
-        let currentTab = 'All';
-
-        // Gameplay state
+        let works = [], likes = {}, currentTab = 'All';
         let activeG, gQuestions = [], currentQIndex = 0;
+        let deferredPrompt;
+
+        // PWA INSTALL LOGIC
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('download-btn').style.display = 'block';
+        });
+
+        async function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') document.getElementById('download-btn').style.display = 'none';
+                deferredPrompt = null;
+            }
+        }
+
+        // SERVICE WORKER REGISTRATION
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then(reg => console.log('SW Registered'));
+            });
+        }
 
         window.onload = () => {
             lucide.createIcons();
@@ -141,7 +158,7 @@
                 works = (await wRes.json()).record.works || [];
                 likes = (await lRes.json()).record.likes || {};
                 render();
-            } catch(e) { console.log("Offline or Load Error"); }
+            } catch(e) { console.log("Offline mode active"); render(); }
         }
 
         function setTab(t, el) {
@@ -154,7 +171,6 @@
         function render() {
             const container = document.getElementById('feed');
             let data = currentTab === 'All' ? works : works.filter(w => w.type === currentTab);
-            
             container.innerHTML = data.map(w => `
                 <div class="card" onclick="openWork(${w.id})">
                     ${user === 'ADMIN' ? `<i data-lucide="trash-2" class="del-btn" onclick="deleteWork(event, ${w.id})"></i>` : ''}
@@ -181,7 +197,7 @@
 
         async function deleteWork(e, id) {
             e.stopPropagation();
-            if(!confirm("Delete forever?")) return;
+            if(!confirm("Delete?")) return;
             works = works.filter(w => w.id !== id);
             render();
             await syncMaster();
@@ -190,7 +206,7 @@
         function openCreator() {
             document.getElementById('modal-overlay').style.display = 'flex';
             document.getElementById('modal-body').innerHTML = `
-                <h3 style="margin-bottom:15px;">Upload Work</h3>
+                <h3>Upload Work</h3>
                 <select id="ctype">
                     <option value="Feeds">Feeds</option>
                     <option value="Truth or Dare">Truth or Dare</option>
@@ -198,10 +214,9 @@
                 </select>
                 <input id="ctitle" placeholder="Title">
                 <textarea id="ccontent" placeholder="Content/Questions (Use / as separator)" rows="4"></textarea>
-                <input type="color" id="ccolor" value="#ff9aa2" title="Choose Card Color">
-                <input id="cans" placeholder="Answers (Optional)">
-                <button class="btn" onclick="saveToBin()">Upload to Ecosystem</button>
-                <p onclick="closeModal()" style="text-align:center; color:#ccc; cursor:pointer; margin-top:15px;">Cancel</p>
+                <input type="color" id="ccolor" value="#ff9aa2">
+                <button class="btn" onclick="saveToBin()">Upload</button>
+                <p onclick="closeModal()" style="text-align:center; cursor:pointer; margin-top:15px;">Cancel</p>
             `;
         }
 
@@ -213,21 +228,12 @@
                 type: type,
                 title: document.getElementById('ctitle').value,
                 content: document.getElementById('ccontent').value,
-                color: document.getElementById('ccolor').value,
-                answers: document.getElementById('cans').value
+                color: document.getElementById('ccolor').value
             };
-
             works.unshift(newItem);
-            let subBin = type === 'Truth or Dare' ? BINS.TD : (type === 'True or False' ? BINS.TF : BINS.ALL);
-            
             closeModal();
             render();
-            
             await syncMaster();
-            await fetch(`https://api.jsonbin.io/v3/b/${subBin}`, {
-                method: 'PUT', headers: {'Content-Type': 'application/json', 'X-Master-Key': API_KEY},
-                body: JSON.stringify({ items: works.filter(w => w.type === type) })
-            });
         }
 
         async function syncMaster() {
@@ -237,17 +243,14 @@
             });
         }
 
-        // --- UPDATED GAME ENGINE ---
         function openWork(id) {
             activeG = works.find(w => w.id === id);
             if(activeG.type === 'Feeds') {
                 showModal(`<h3>${activeG.title}</h3><p>${activeG.content}</p><button class="btn" onclick="closeModal()">Close</button>`);
                 return;
             }
-            // Prepare questions using '/' separator
             gQuestions = activeG.content.split('/').map(q => q.trim()).filter(q => q !== "");
             currentQIndex = 0;
-            
             document.getElementById('game-layer').style.display = 'flex';
             document.getElementById('game-layer').style.backgroundColor = activeG.color || 'var(--bg)';
             document.getElementById('game-mode-display').innerText = activeG.type;
@@ -255,61 +258,25 @@
         }
 
         function play() {
-            if (gQuestions.length === 0) {
-                alert("No more questions!");
-                closeGame();
-                return;
-            }
-            
+            if (gQuestions.length === 0) { alert("Empty!"); closeGame(); return; }
             document.getElementById('q-text').innerText = gQuestions[currentQIndex];
             const area = document.getElementById('game-btns');
-            
             if(activeG.type === 'Truth or Dare') {
                 area.innerHTML = `
                     <button class="btn" onclick="nextQ()">Next Player</button>
                     <div style="display:flex; gap:10px;">
-                        <button class="btn" style="background:#555" onclick="skipQ()">Skip Question</button>
-                        <button class="btn" style="background:#ff7675" onclick="removeCurrentQ()">Close & Delete Question</button>
-                    </div>
-                `;
+                        <button class="btn" style="background:#555" onclick="skipQ()">Skip</button>
+                        <button class="btn" style="background:#ff7675" onclick="removeCurrentQ()">Close & Delete</button>
+                    </div>`;
             } else {
-                area.innerHTML = `
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn" onclick="nextQ()">TRUE</button>
-                        <button class="btn" style="background:#ddd; color:#333;" onclick="nextQ()">FALSE</button>
-                    </div>
-                `;
+                area.innerHTML = `<div style="display:flex; gap:10px;"><button class="btn" onclick="nextQ()">TRUE</button><button class="btn" style="background:#ddd; color:#333;" onclick="nextQ()">FALSE</button></div>`;
             }
         }
 
-        function shuffleCurrent() {
-            gQuestions.sort(() => Math.random() - 0.5);
-            currentQIndex = 0;
-            play();
-            alert("Questions Shuffled!");
-        }
-
-        function skipQ() {
-            currentQIndex = (currentQIndex + 1) % gQuestions.length;
-            play();
-        }
-
-        function removeCurrentQ() {
-            gQuestions.splice(currentQIndex, 1);
-            if (currentQIndex >= gQuestions.length) currentQIndex = 0;
-            play();
-        }
-
-        function nextQ() {
-            currentQIndex++;
-            if(currentQIndex >= gQuestions.length) { 
-                alert("Round Complete! Re-shuffling..."); 
-                currentQIndex = 0; 
-                gQuestions.sort(() => Math.random() - 0.5);
-            }
-            play();
-        }
-
+        function shuffleCurrent() { gQuestions.sort(() => Math.random() - 0.5); currentQIndex = 0; play(); }
+        function skipQ() { currentQIndex = (currentQIndex + 1) % gQuestions.length; play(); }
+        function removeCurrentQ() { gQuestions.splice(currentQIndex, 1); if (currentQIndex >= gQuestions.length) currentQIndex = 0; play(); }
+        function nextQ() { currentQIndex++; if(currentQIndex >= gQuestions.length) currentQIndex = 0; play(); }
         function closeGame() { document.getElementById('game-layer').style.display = 'none'; }
         function showModal(h) { document.getElementById('modal-body').innerHTML = h; document.getElementById('modal-overlay').style.display = 'flex'; }
         function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
